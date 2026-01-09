@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -46,7 +47,8 @@ static char * hexDigits = "0123456789ABCDEF";
 static void getUnixString(char * to, int size, struct object * from);
 static struct object * stringToUrl(struct byteObject * from);
 static struct object * urlToString(struct byteObject * from);
-
+static int editFile(const char *tmpFileName, size_t tmpFileNameSize);
+static int invokeEditor(const char *editor, const char *tmpFileName, size_t tmpFileNameSize);
 
 
 /*
@@ -187,14 +189,7 @@ struct object *primitive(int primitiveNumber, struct object *args, int *failed)
         fclose(fp);
 
         /* call the editor */
-        size_t cmdBufSize = tmpFileNameSize + strlen("vi ");
-        char *cmdBuf = (char*)alloca(cmdBufSize + 1);
-        memset(cmdBuf, 0, cmdBufSize + 1);
-
-        strcpy(cmdBuf,"vi ");
-        strcat(cmdBuf, tmpFileName);
-        rc = system(cmdBuf);
-
+        rc = editFile(tmpFileName, tmpFileNameSize);
         if(rc == -1) {
             error("error starting editor: %d!",(int)errno);
         }
@@ -870,4 +865,50 @@ struct object * urlToString(struct byteObject * from)
     }
 
     return (struct object *)newStr;
+}
+
+
+static int editFile(const char *tmpFileName, size_t tmpFileNameSize)
+{
+    static const char * const editors[] = {
+        "$VISUAL", "$EDITOR", "vi"
+    };
+
+    int rc, i;
+
+    for (i = 0; i < sizeof(editors)/sizeof(editors[0]); ++i) {
+        const char *editor = editors[i];
+        if (editor[0] == '$') {
+            editor = getenv(editor + 1);
+            if (editor == NULL) {
+                continue;
+            }
+
+            editor += strspn(editor, " \t");
+            if (*editor == '\0') {
+                continue;
+            }
+        }
+
+        rc = invokeEditor(editor, tmpFileName, tmpFileNameSize);
+        if (rc != -1 && WIFEXITED(rc) && WEXITSTATUS(rc) == 0) {
+                return rc;
+        }
+    }
+
+    return -1;
+}
+
+
+static int invokeEditor(const char *editor,
+                        const char *tmpFileName, size_t tmpFileNameSize)
+{
+    int rc;
+
+    size_t cmdBufSize = strlen(editor) + 1 + tmpFileNameSize + 1;
+    char *cmdBuf = (char *) alloca(cmdBufSize);
+    snprintf(cmdBuf, cmdBufSize, "%s %s", editor, tmpFileName);
+
+    rc = system(cmdBuf);
+    return rc;
 }
