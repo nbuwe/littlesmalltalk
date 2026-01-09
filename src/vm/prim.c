@@ -12,7 +12,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#ifdef HAVE_ALLOCA_H
 #include <alloca.h>
+#endif
 #include "prim.h"
 #include "err.h"
 #include "interp.h"

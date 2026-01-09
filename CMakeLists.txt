@@ -9,6 +9,13 @@ set (VERSION_MINOR 7)
 set (VERSION_PATCH 2)
 set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
+include(CheckIncludeFile)
+check_include_file(alloca.h HAVE_ALLOCA_H)
+if(HAVE_ALLOCA_H)
+  add_definitions(-DHAVE_ALLOCA_H=1)
+endif()
+
+
 # make the version file.
 CONFIGURE_FILE("${PROJECT_SOURCE_DIR}/src/vm/version.h.in" "${PROJECT_SOURCE_DIR}/src/vm/version.h" @ONLY)
 
